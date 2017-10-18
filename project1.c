@@ -2,23 +2,24 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/wait.h>
 
 #define MAX_LINE 80 /* The maximum length command */
 
 void parse(char *cmd, char** args) {
-	while(*cmd != '\0') {
+	while(*cmd != '\0' && *cmd != '\n') {
 		while(*cmd == ' ') {
 			*cmd++;
 		}
 		*args++ = cmd;
-		while(*cmd != '\0' && *cmd != ' ') {
+		while(*cmd != '\0' && *cmd != ' ' && *cmd != '\n') {
 			cmd++;
 		}
 	}
 	*args++ = '\0';
 }
 
-void runCommand(char **args) {
+void runCommand(char **args, int async) {
 	int status;
 	pid_t pid = fork();
 
@@ -26,8 +27,22 @@ void runCommand(char **args) {
 		execvp(*args, args);
 	}
 	else {
-		while(wait(&status) != pid);
+		if (async == 0)
+			while(wait(&status) != pid);
 	}
+}
+
+int isAsync(char *args[]) {
+	int i = 0;
+	printf("here");
+	fflush(stdout);
+	while (strcmp(args[i], "\n") != 0 && strcmp(args[i], "\0") != 0) {
+		if (strcmp(args[i], "&") == 0){
+			return 1;
+		}
+		i++;
+	}
+	return 0;
 }
 
 int main(void) {
@@ -38,13 +53,14 @@ int main(void) {
 	while (should_run) {
 		printf("osh>");
 		fflush(stdout);
-		scanf("%s", cmd);	
+		fgets(cmd, MAX_LINE, stdin);	
 
 		parse(cmd, args);
 		if (strcmp(args[0], "exit") == 0){
-			exit(0);
+			should_run = 0;
 		}
-		runCommand(args);
+		int async = isAsync(args);
+		runCommand(args, async);
 		/**
 		 * After reading user input, the steps are:
 		 * (1) fork a child process using fork()

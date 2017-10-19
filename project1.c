@@ -6,25 +6,13 @@
 
 #define MAX_LINE 80 /* The maximum length command */
 
-void parse(char *cmd, char** args) {
-	while(*cmd != '\0' && *cmd != '\n') {
-		while(*cmd == ' ') {
-			*cmd++;
-		}
-		*args++ = cmd;
-		while(*cmd != '\0' && *cmd != ' ' && *cmd != '\n') {
-			cmd++;
-		}
-	}
-	*args++ = '\0';
-}
-
-void runCommand(char **args, int async) {
+void runCommand(char *args[], int async) {
 	int status;
 	pid_t pid = fork();
 
 	if (pid == 0) {
-		execvp(*args, args);
+		if (execvp(args[0], args) < 0)
+			printf("Error in execvp");
 	}
 	else {
 		if (async == 0)
@@ -34,9 +22,7 @@ void runCommand(char **args, int async) {
 
 int isAsync(char *args[]) {
 	int i = 0;
-	printf("here");
-	fflush(stdout);
-	while (strcmp(args[i], "\n") != 0 && strcmp(args[i], "\0") != 0) {
+	while (args[i]) {
 		if (strcmp(args[i], "&") == 0){
 			return 1;
 		}
@@ -49,13 +35,22 @@ int main(void) {
 	char *args[MAX_LINE/2 + 1]; /* command line arguments */
 	int should_run = 1; /* flag to determine when to exit program */
 	int status;
-	char *cmd;
+	char *cmd = malloc(sizeof(char) * MAX_LINE);
 	while (should_run) {
 		printf("osh>");
 		fflush(stdout);
-		fgets(cmd, MAX_LINE, stdin);	
+		fgets(cmd, MAX_LINE, stdin);
 
-		parse(cmd, args);
+		char *tmp = strtok(cmd, " ");
+		int i = 0;
+		while(tmp != NULL) {
+			args[i++] = strcat(tmp, "\0");
+			tmp = strtok(NULL, " ");
+		}
+		args[i -1][strlen(args[i-1]) - 1] = 0;
+		for (i = i; i< (MAX_LINE/2 + 1); i++)
+			args[i] = NULL;
+
 		if (strcmp(args[0], "exit") == 0){
 			should_run = 0;
 		}
